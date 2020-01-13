@@ -1,0 +1,6 @@
+mainnet
+testnet
+
+.idea
+target
+*.iml
