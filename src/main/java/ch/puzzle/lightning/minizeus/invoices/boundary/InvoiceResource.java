@@ -2,13 +2,12 @@ package ch.puzzle.lightning.minizeus.invoices.boundary;
 
 
 import ch.puzzle.lightning.minizeus.invoices.entity.Invoice;
-import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceSettledEvent;
+import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceSettled;
 
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.ObservesAsync;
 import javax.inject.Inject;
-import javax.json.JsonObject;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -54,7 +53,7 @@ public class InvoiceResource {
         this.sseBroadcaster.register(sseEventSink);
     }
 
-    public void sendMessage(@ObservesAsync InvoiceSettledEvent value) {
+    public void sendMessage(@ObservesAsync InvoiceSettled value) {
         OutboundSseEvent sseEvent = eventBuilder.name("invoice")
                 .mediaType(MediaType.APPLICATION_JSON_TYPE)
                 .data(Invoice.class, value.invoice)

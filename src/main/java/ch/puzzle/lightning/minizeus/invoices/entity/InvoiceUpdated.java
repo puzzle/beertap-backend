@@ -1,9 +1,9 @@
 package ch.puzzle.lightning.minizeus.invoices.entity;
 
-public class InvoiceSettledEvent {
+public class InvoiceUpdated {
     public Invoice invoice;
 
-    public InvoiceSettledEvent(Invoice invoice) {
+    public InvoiceUpdated(Invoice invoice) {
         this.invoice = invoice;
     }
 }

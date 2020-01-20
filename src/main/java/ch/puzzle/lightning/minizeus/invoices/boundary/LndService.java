@@ -1,9 +1,6 @@
 package ch.puzzle.lightning.minizeus.invoices.boundary;
 
-import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceSettledEvent;
-import ch.puzzle.lightning.minizeus.invoices.entity.LndValidationException;
-import ch.puzzle.lightning.minizeus.invoices.entity.RequestStatusException;
-import ch.puzzle.lightning.minizeus.invoices.entity.ZeusInternalException;
+import ch.puzzle.lightning.minizeus.invoices.entity.*;
 import io.grpc.Status;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
@@ -28,6 +25,7 @@ import javax.net.ssl.SSLException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.logging.Logger;
 
@@ -45,7 +43,9 @@ public class LndService implements StreamObserver<Invoice> {
     private AsynchronousLndAPI readonlyAsyncAPI;
 
     @Inject
-    Event<InvoiceSettledEvent> invoiceSettledEvent;
+    Event<InvoiceUpdated> invoiceUpdateEvent;
+    @Inject
+    Event<InvoiceCreated> invoiceCreatedEvent;
 
     @Inject
     @ConfigProperty(name = "lnd.host")
@@ -76,14 +76,13 @@ public class LndService implements StreamObserver<Invoice> {
         Invoice invoiceRequest = new Invoice();
         invoiceRequest.setValue(amount);
         invoiceRequest.setMemo(memo);
+        invoiceRequest.setExpiry(getInvoiceExpiry());
         try {
-            ch.puzzle.lightning.minizeus.invoices.entity.Invoice invoice =
-                    new ch.puzzle.lightning.minizeus.invoices.entity.Invoice();
             AddInvoiceResponse response = getSyncInvoiceApi().addInvoice(invoiceRequest);
-            invoice.settled = false;
-            invoice.paymentRequest = response.getPaymentRequest();
-            invoice.rHash = bytesToHex(response.getRHash());
+            ch.puzzle.lightning.minizeus.invoices.entity.Invoice invoice =
+                    ch.puzzle.lightning.minizeus.invoices.entity.Invoice.fromAddInvoice(response);
             invoice.memo = memo;
+            invoiceCreatedEvent.fireAsync(new InvoiceCreated(invoice.rHash, getInvoiceExpiry()));
             return invoice;
         } catch (StatusException e) {
             closeSyncInvoiceApi();
@@ -97,6 +96,10 @@ public class LndService implements StreamObserver<Invoice> {
             closeSyncInvoiceApi();
             throw new ZeusInternalException(e);
         }
+    }
+
+    private long getInvoiceExpiry() {
+        return Duration.of(10, ChronoUnit.MINUTES).get(ChronoUnit.SECONDS);
     }
 
     @Retry(delay = 1L, delayUnit = ChronoUnit.SECONDS)
@@ -115,7 +118,7 @@ public class LndService implements StreamObserver<Invoice> {
     public void onNext(Invoice invoice) {
         String invoiceHex = bytesToHex(invoice.getRHash());
         LOG.info("Received update on subscription for " + invoiceHex);
-        invoiceSettledEvent.fireAsync(new InvoiceSettledEvent(
+        invoiceUpdateEvent.fireAsync(new InvoiceUpdated(
                 ch.puzzle.lightning.minizeus.invoices.entity.Invoice.fromLndInvoice(invoice)));
     }
 
