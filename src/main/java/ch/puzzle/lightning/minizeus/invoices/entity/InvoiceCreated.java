@@ -2,11 +2,9 @@ package ch.puzzle.lightning.minizeus.invoices.entity;
 
 public class InvoiceCreated {
 
-    public final long invoiceExpiry;
-    public final String rHash;
+    public Invoice invoice;
 
-    public InvoiceCreated(String rHash, long invoiceExpiry) {
-        this.rHash = rHash;
-        this.invoiceExpiry =  invoiceExpiry;
+    public InvoiceCreated(Invoice invoice) {
+        this.invoice = invoice;
     }
 }

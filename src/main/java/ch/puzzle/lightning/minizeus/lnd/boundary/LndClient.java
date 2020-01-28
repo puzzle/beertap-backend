@@ -1,5 +1,6 @@
-package ch.puzzle.lightning.minizeus.invoices.boundary;
+package ch.puzzle.lightning.minizeus.lnd.boundary;
 
+import ch.puzzle.lightning.minizeus.invoices.boundary.LightningClient;
 import ch.puzzle.lightning.minizeus.invoices.entity.*;
 import io.grpc.Status;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;
@@ -11,7 +12,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.Retry;
 import org.lightningj.lnd.wrapper.*;
 import org.lightningj.lnd.wrapper.message.AddInvoiceResponse;
-import org.lightningj.lnd.wrapper.message.GetInfoResponse;
 import org.lightningj.lnd.wrapper.message.Invoice;
 import org.lightningj.lnd.wrapper.message.InvoiceSubscription;
 
@@ -21,20 +21,21 @@ import javax.enterprise.context.Initialized;
 import javax.enterprise.event.Event;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
+import javax.json.JsonObject;
 import javax.net.ssl.SSLException;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import java.util.logging.Logger;
 
 import static ch.puzzle.lightning.minizeus.conversions.boundary.ConvertService.bytesToHex;
 
 @ApplicationScoped
-public class LndService implements StreamObserver<Invoice> {
+public class LndClient implements StreamObserver<Invoice>, LightningClient {
 
-    private static final Logger LOG = Logger.getLogger(LndService.class.getName());
+    private static final Logger LOG = Logger.getLogger(LndClient.class.getName());
     private static final long CONNECTION_RETRY_TIMEOUT = 10000;
     private static final long NODE_LOCKED_RETRY_TIMEOUT = 30000;
 
@@ -49,19 +50,24 @@ public class LndService implements StreamObserver<Invoice> {
 
     @Inject
     @ConfigProperty(name = "lnd.host")
-    String host;
+    Optional<String> host;
+
     @Inject
     @ConfigProperty(name = "lnd.port")
-    int port;
+    Integer port;
+
     @Inject
     @ConfigProperty(name = "lnd.config.macaroon-readonly.path")
     String readonlyMacaroonPath;
+
     @Inject
     @ConfigProperty(name = "lnd.config.macaroon-invoice.path")
     String invoiceMacaroonPath;
+
     @Inject
     @ConfigProperty(name = "lnd.config.cert.path")
     String certPath;
+
     @Inject
     @ConfigProperty(name = "lnd.config.base-path")
     String basePath;
@@ -72,7 +78,7 @@ public class LndService implements StreamObserver<Invoice> {
     }
 
     @Retry(retryOn = {RequestStatusException.class, SSLException.class}, delay = 1L, delayUnit = ChronoUnit.SECONDS)
-    public ch.puzzle.lightning.minizeus.invoices.entity.Invoice generateInvoice(int amount, String memo) {
+    public ch.puzzle.lightning.minizeus.invoices.entity.Invoice generateInvoice(long amount, String memo) {
         Invoice invoiceRequest = new Invoice();
         invoiceRequest.setValue(amount);
         invoiceRequest.setMemo(memo);
@@ -82,7 +88,8 @@ public class LndService implements StreamObserver<Invoice> {
             ch.puzzle.lightning.minizeus.invoices.entity.Invoice invoice =
                     ch.puzzle.lightning.minizeus.invoices.entity.Invoice.fromAddInvoice(response);
             invoice.memo = memo;
-            invoiceCreatedEvent.fireAsync(new InvoiceCreated(invoice.rHash, getInvoiceExpiry()));
+            invoice.expiry = getInvoiceExpiry();
+            invoiceCreatedEvent.fire(new InvoiceCreated(invoice));
             return invoice;
         } catch (StatusException e) {
             closeSyncInvoiceApi();
@@ -98,15 +105,11 @@ public class LndService implements StreamObserver<Invoice> {
         }
     }
 
-    private long getInvoiceExpiry() {
-        return Duration.of(10, ChronoUnit.MINUTES).get(ChronoUnit.SECONDS);
-    }
-
     @Retry(delay = 1L, delayUnit = ChronoUnit.SECONDS)
-    public GetInfoResponse getInfo() {
+    public JsonObject getInfo() {
         LOG.info("getInfo called");
         try {
-            return getSyncReadonlyApi().getInfo();
+            return getSyncReadonlyApi().getInfo().toJson().build();
         } catch (StatusException | ValidationException | IOException e) {
             LOG.warning("getInfo call failed, retrying with fresh api");
             closeSyncReadonlyApi();
@@ -115,10 +118,16 @@ public class LndService implements StreamObserver<Invoice> {
     }
 
     @Override
+    public boolean isConfigured() {
+        return host.isPresent() &&
+                port != null;
+    }
+
+    @Override
     public void onNext(Invoice invoice) {
         String invoiceHex = bytesToHex(invoice.getRHash());
         LOG.info("Received update on subscription for " + invoiceHex);
-        invoiceUpdateEvent.fireAsync(new InvoiceUpdated(
+        invoiceUpdateEvent.fire(new InvoiceUpdated(
                 ch.puzzle.lightning.minizeus.invoices.entity.Invoice.fromLndInvoice(invoice)));
     }
 
@@ -154,10 +163,12 @@ public class LndService implements StreamObserver<Invoice> {
     }
 
     public void init(@Observes @Initialized(ApplicationScoped.class) Object init) {
-        try {
-            subscribeToInvoices();
-        } catch (SSLException | StatusException | ValidationException e) {
-            onError(e);
+        if (isConfigured()) {
+            try {
+                subscribeToInvoices();
+            } catch (SSLException | StatusException | ValidationException e) {
+                onError(e);
+            }
         }
     }
 
@@ -212,7 +223,7 @@ public class LndService implements StreamObserver<Invoice> {
     private SynchronousLndAPI getSyncReadonlyApi() throws IOException {
         if (readonlySyncAPI == null) {
             readonlySyncAPI = new SynchronousLndAPI(
-                    host,
+                    host.orElseThrow(),
                     port,
                     getSslContext(),
                     getMacaroonContext(readonlyMacaroonPath)
@@ -225,7 +236,7 @@ public class LndService implements StreamObserver<Invoice> {
     private SynchronousLndAPI getSyncInvoiceApi() throws SSLException {
         if (invoiceSyncAPI == null) {
             invoiceSyncAPI = new SynchronousLndAPI(
-                    host,
+                    host.orElseThrow(),
                     port,
                     getSslContext(),
                     getMacaroonContext(invoiceMacaroonPath)
@@ -237,7 +248,7 @@ public class LndService implements StreamObserver<Invoice> {
     private AsynchronousLndAPI getAsyncReadonlyApi() throws SSLException {
         if (readonlyAsyncAPI == null) {
             readonlyAsyncAPI = new AsynchronousLndAPI(
-                    host,
+                    host.orElseThrow(),
                     port,
                     getSslContext(),
                     getMacaroonContext(readonlyMacaroonPath)

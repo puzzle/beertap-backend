@@ -1,23 +1,47 @@
 package ch.puzzle.lightning.minizeus.conversions.boundary;
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.Objects;
+/*
+MIT License
+
+Copyright (c) 2017 Eugen Paraschiv
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+FROM: https://github.com/eugenp/tutorials/tree/master/algorithms-miscellaneous-5
+ */
 
 public class ConvertService {
 
-    private final static char[] hexArray = "0123456789ABCDEF".toCharArray();
-    private final static DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
-
-    public static String bytesToHex(byte[] input) {
-        char[] hexChars = new char[input.length * 2];
-        for (int j = 0; j < input.length; j++) {
-            int v = input[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+    public static String bytesToHex(byte[] byteArray) {
+        StringBuilder hexStringBuffer = new StringBuilder();
+        for (byte b : byteArray) {
+            hexStringBuffer.append(byteToHex(b));
         }
-        return new String(hexChars).toLowerCase();
+        return hexStringBuffer.toString();
+    }
+
+    public static String byteToHex(byte num) {
+        char[] hexDigits = new char[2];
+        hexDigits[0] = Character.forDigit((num >> 4) & 0xF, 16);
+        hexDigits[1] = Character.forDigit((num & 0xF), 16);
+        return new String(hexDigits);
     }
 
     public static byte[] hexToBytes(String input) {
@@ -30,19 +54,4 @@ public class ConvertService {
         return data;
     }
 
-    public static Instant unixTimestampToInstant(Long unixTimestamp) {
-        return Objects.equals(unixTimestamp, 0L) ? null : Instant.ofEpochSecond(unixTimestamp);
-    }
-
-    public static String formatCurrency(String ticker, Double value) {
-        return String.format("%s %s", ticker, formatNumber(value, 2));
-    }
-
-    public static String formatNumber(Double value, int numDigits) {
-        return String.format("%." + numDigits + "f", value);
-    }
-
-    public static String formatTime(Instant instant) {
-        return instant.atZone(ZoneId.systemDefault()).format(TIME_FORMATTER);
-    }
 }

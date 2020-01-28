@@ -6,7 +6,8 @@ import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceSettled;
 
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.event.ObservesAsync;
+import javax.enterprise.event.Observes;
+import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Context;
@@ -22,7 +23,7 @@ import javax.ws.rs.sse.SseEventSink;
 public class InvoiceResource {
 
     @Inject
-    LndService lndService;
+    Instance<Lightning> lightning;
 
     @Context
     private Sse sse;
@@ -40,9 +41,9 @@ public class InvoiceResource {
     @GET
     @Produces("application/json")
     public Invoice getInvoice(
-            @QueryParam("amount") @DefaultValue("1") int amount,
+            @QueryParam("amount") @DefaultValue("1") long amount,
             @QueryParam("memo") @DefaultValue("default") String memo) {
-        return lndService.generateInvoice(amount, memo);
+        return lightning.get().generateInvoice(amount, memo);
     }
 
     @GET
@@ -53,7 +54,7 @@ public class InvoiceResource {
         this.sseBroadcaster.register(sseEventSink);
     }
 
-    public void sendMessage(@ObservesAsync InvoiceSettled value) {
+    public void sendMessage(@Observes InvoiceSettled value) {
         OutboundSseEvent sseEvent = eventBuilder.name("invoice")
                 .mediaType(MediaType.APPLICATION_JSON_TYPE)
                 .data(Invoice.class, value.invoice)
