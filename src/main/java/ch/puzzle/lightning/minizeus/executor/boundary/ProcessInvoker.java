@@ -5,7 +5,7 @@ import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceSettled;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.event.Observes;
+import javax.enterprise.event.ObservesAsync;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -24,7 +24,7 @@ public class ProcessInvoker {
     @ConfigProperty(name = "app.beer-tap.memo-prefix", defaultValue = "FlashFlush")
     private String memoPrefix;
 
-    public void consumeInvoice(@Observes InvoiceSettled event) {
+    public void consumeInvoice(@ObservesAsync InvoiceSettled event) {
         LOG.info("consumeInvoice " + event.invoice.rHash);
         CompletableFuture.supplyAsync(() -> {
             try {

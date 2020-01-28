@@ -6,7 +6,7 @@ import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceUpdated;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
-import javax.enterprise.event.Observes;
+import javax.enterprise.event.ObservesAsync;
 import javax.inject.Inject;
 import java.time.Instant;
 import java.util.Set;
@@ -24,20 +24,20 @@ public class InvoiceCache {
 
     private final ConcurrentMap<String, Long> invoices = new ConcurrentHashMap<>();
 
-    public void invoiceCreated(@Observes InvoiceCreated value) {
+    public void invoiceCreated(@ObservesAsync InvoiceCreated value) {
         invoices.put(value.invoice.rHash, now() + value.invoice.expiry);
         if (invoices.size() > 1000) {
             LOG.severe("Cache is getting big!");
         }
     }
 
-    public void invoiceUpdated(@Observes InvoiceUpdated value) {
+    public void invoiceUpdated(@ObservesAsync InvoiceUpdated value) {
         long now = now();
         cleanCache(now);
         if (invoices.getOrDefault(value.invoice.rHash, 0L) > now &&
                 value.invoice.settled) {
-            invoiceSettledEvent.fire(new InvoiceSettled(value.invoice));
-            invoices.remove(value.invoice.rHash);
+            invoiceSettledEvent.fireAsync(new InvoiceSettled(value.invoice))
+                    .whenComplete((invoiceSettled, throwable) -> invoices.remove(invoiceSettled.invoice.rHash));
         }
     }
 

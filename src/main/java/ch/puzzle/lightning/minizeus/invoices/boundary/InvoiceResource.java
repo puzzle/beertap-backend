@@ -7,6 +7,7 @@ import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceSettled;
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
+import javax.enterprise.event.ObservesAsync;
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 import javax.ws.rs.*;
@@ -54,7 +55,7 @@ public class InvoiceResource {
         this.sseBroadcaster.register(sseEventSink);
     }
 
-    public void sendMessage(@Observes InvoiceSettled value) {
+    public void sendMessage(@ObservesAsync InvoiceSettled value) {
         OutboundSseEvent sseEvent = eventBuilder.name("invoice")
                 .mediaType(MediaType.APPLICATION_JSON_TYPE)
                 .data(Invoice.class, value.invoice)

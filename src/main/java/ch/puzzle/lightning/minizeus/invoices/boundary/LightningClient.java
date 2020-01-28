@@ -12,10 +12,13 @@ public interface LightningClient {
 
     JsonObject getInfo();
 
+    void startInvoiceListen();
+
 
     default long getInvoiceExpiry() {
         return Duration.of(10, ChronoUnit.MINUTES).get(ChronoUnit.SECONDS);
     }
+
 
     boolean isConfigured();
 }

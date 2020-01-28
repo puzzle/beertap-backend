@@ -17,7 +17,6 @@ import org.lightningj.lnd.wrapper.message.InvoiceSubscription;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.Destroyed;
-import javax.enterprise.context.Initialized;
 import javax.enterprise.event.Event;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
@@ -28,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 
 import static ch.puzzle.lightning.minizeus.conversions.boundary.ConvertService.bytesToHex;
@@ -73,8 +73,13 @@ public class LndClient implements StreamObserver<Invoice>, LightningClient {
     String basePath;
 
     private void subscribeToInvoices() throws SSLException, StatusException, ValidationException {
-        InvoiceSubscription invoiceSubscription = new InvoiceSubscription();
-        getAsyncReadonlyApi().subscribeInvoices(invoiceSubscription, this);
+        if (isConfigured()) {
+            LOG.info("Starting invoice subscription to lnd");
+            InvoiceSubscription invoiceSubscription = new InvoiceSubscription();
+            getAsyncReadonlyApi().subscribeInvoices(invoiceSubscription, this);
+        } else {
+            throw new ZeusInternalException("Lnd is not configured");
+        }
     }
 
     @Retry(retryOn = {RequestStatusException.class, SSLException.class}, delay = 1L, delayUnit = ChronoUnit.SECONDS)
@@ -89,7 +94,7 @@ public class LndClient implements StreamObserver<Invoice>, LightningClient {
                     ch.puzzle.lightning.minizeus.invoices.entity.Invoice.fromAddInvoice(response);
             invoice.memo = memo;
             invoice.expiry = getInvoiceExpiry();
-            invoiceCreatedEvent.fire(new InvoiceCreated(invoice));
+            invoiceCreatedEvent.fireAsync(new InvoiceCreated(invoice));
             return invoice;
         } catch (StatusException e) {
             closeSyncInvoiceApi();
@@ -119,7 +124,7 @@ public class LndClient implements StreamObserver<Invoice>, LightningClient {
 
     @Override
     public boolean isConfigured() {
-        return host.isPresent() &&
+        return host.filter(Predicate.not(String::isEmpty)).isPresent() &&
                 port != null;
     }
 
@@ -127,7 +132,7 @@ public class LndClient implements StreamObserver<Invoice>, LightningClient {
     public void onNext(Invoice invoice) {
         String invoiceHex = bytesToHex(invoice.getRHash());
         LOG.info("Received update on subscription for " + invoiceHex);
-        invoiceUpdateEvent.fire(new InvoiceUpdated(
+        invoiceUpdateEvent.fireAsync(new InvoiceUpdated(
                 ch.puzzle.lightning.minizeus.invoices.entity.Invoice.fromLndInvoice(invoice)));
     }
 
@@ -162,13 +167,12 @@ public class LndClient implements StreamObserver<Invoice>, LightningClient {
         LOG.info("Subscription for listening to invoices completed.");
     }
 
-    public void init(@Observes @Initialized(ApplicationScoped.class) Object init) {
-        if (isConfigured()) {
-            try {
-                subscribeToInvoices();
-            } catch (SSLException | StatusException | ValidationException e) {
-                onError(e);
-            }
+    @Override
+    public void startInvoiceListen() {
+        try {
+            subscribeToInvoices();
+        } catch (SSLException | StatusException | ValidationException e) {
+            onError(e);
         }
     }
 
