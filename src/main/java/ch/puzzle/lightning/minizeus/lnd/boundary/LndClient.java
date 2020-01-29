@@ -1,6 +1,6 @@
 package ch.puzzle.lightning.minizeus.lnd.boundary;
 
-import ch.puzzle.lightning.minizeus.invoices.boundary.LightningClient;
+import ch.puzzle.lightning.minizeus.lightning.boundary.LightningClient;
 import ch.puzzle.lightning.minizeus.invoices.entity.*;
 import io.grpc.Status;
 import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts;

@@ -1,4 +1,4 @@
-package ch.puzzle.lightning.minizeus.invoices.boundary;
+package ch.puzzle.lightning.minizeus.lightning.boundary;
 
 import ch.puzzle.lightning.minizeus.invoices.entity.Invoice;
 

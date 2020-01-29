@@ -1,6 +1,4 @@
-package ch.puzzle.lightning.minizeus.invoices.control;
-
-import ch.puzzle.lightning.minizeus.invoices.entity.LndValidationException;
+package ch.puzzle.lightning.minizeus.lnd.boundary;
 
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ExceptionMapper;

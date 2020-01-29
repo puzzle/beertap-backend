@@ -1,4 +1,4 @@
-package ch.puzzle.lightning.minizeus.invoices.boundary;
+package ch.puzzle.lightning.minizeus.lightning.boundary;
 
 import ch.puzzle.lightning.minizeus.invoices.entity.Invoice;
 import ch.puzzle.lightning.minizeus.lnd.boundary.LndClient;
@@ -15,7 +15,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 
-import static ch.puzzle.lightning.minizeus.invoices.boundary.Lightning.ClientType.NO_PREFERENCE;
+import static ch.puzzle.lightning.minizeus.lightning.boundary.Lightning.ClientType.NO_PREFERENCE;
 
 @ApplicationScoped
 public class Lightning implements LightningClient {

@@ -1,11 +1,11 @@
 package ch.puzzle.lightning.minizeus.opennode.boundary;
 
 import ch.puzzle.lightning.minizeus.invoices.boundary.InvoiceCache;
-import ch.puzzle.lightning.minizeus.invoices.boundary.LightningClient;
 import ch.puzzle.lightning.minizeus.invoices.entity.Invoice;
 import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceCreated;
 import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceUpdated;
 import ch.puzzle.lightning.minizeus.invoices.entity.ZeusInternalException;
+import ch.puzzle.lightning.minizeus.lightning.boundary.LightningClient;
 import ch.puzzle.lightning.minizeus.opennode.entity.OpenNodeCharge;
 import org.eclipse.jetty.client.HttpResponseException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -22,7 +22,6 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -71,6 +70,15 @@ public class OpenNodeClient implements LightningClient {
         return invoice;
     }
 
+    public JsonObject generateInvoiceWithCallback(String orderId, long amount, String memo, String callbackUrl) {
+        OpenNodeCharge charge = new OpenNodeCharge();
+        charge.order_id = orderId;
+        charge.amount = amount;
+        charge.description = memo;
+        charge.success_url = callbackUrl;
+        return createInvoice(charge).getJsonObject("data");
+    }
+
 
     public JsonObject getInfo() {
         return getChargesBuilder().get(JsonObject.class);
@@ -106,7 +114,7 @@ public class OpenNodeClient implements LightningClient {
     private void checkInvoices() {
         LOG.info("Checking OpenNode invoices");
         for (String invoiceId : invoiceCache.getPendingInvoices()) {
-            getInvoiceStatus(invoiceId);
+            checkInvoiceStatus(invoiceId);
         }
         try {
             TimeUnit.SECONDS.sleep(1L);
@@ -117,20 +125,20 @@ public class OpenNodeClient implements LightningClient {
         }
     }
 
-    private void getInvoiceStatus(String invoiceId) {
-        getChargeBuilder(invoiceId).rx().get(JsonObject.class)
-                .thenApply(jsonObject -> jsonObject.getJsonObject("data"))
-                .thenComposeAsync(jsonObject -> {
-                    InvoiceUpdated event = new InvoiceUpdated(
-                            Invoice.fromOpenNodeCharge(jsonObject));
-                    if ("paid".equals(jsonObject.getString("status"))) {
-                        LOG.info("Sending update event");
-                        return invoiceUpdateEvent.fireAsync(event);
-                    }
+    public JsonObject getInvoice(String invoiceId) {
+        return getChargeBuilder(invoiceId).get(JsonObject.class).getJsonObject("data");
+    }
 
-                    LOG.info("Invoice not settled");
-                    return CompletableFuture.completedStage(event);
-                }).toCompletableFuture().join();
+    private void checkInvoiceStatus(String invoiceId) {
+        JsonObject charge = getInvoice(invoiceId);
+        InvoiceUpdated event = new InvoiceUpdated(
+                Invoice.fromOpenNodeCharge(charge));
+        if ("paid".equals(charge.getString("status"))) {
+            LOG.info("Sending update event");
+            invoiceUpdateEvent.fireAsync(event);
+        } else {
+            LOG.info("Invoice not settled");
+        }
     }
 
 

@@ -3,10 +3,10 @@ package ch.puzzle.lightning.minizeus.invoices.boundary;
 
 import ch.puzzle.lightning.minizeus.invoices.entity.Invoice;
 import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceSettled;
+import ch.puzzle.lightning.minizeus.lightning.boundary.Lightning;
 
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.event.Observes;
 import javax.enterprise.event.ObservesAsync;
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;

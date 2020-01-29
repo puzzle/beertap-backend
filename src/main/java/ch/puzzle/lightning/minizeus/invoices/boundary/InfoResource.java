@@ -1,10 +1,9 @@
 package ch.puzzle.lightning.minizeus.invoices.boundary;
 
 
+import ch.puzzle.lightning.minizeus.lightning.boundary.Lightning;
+
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.inject.Any;
-import javax.enterprise.inject.Default;
-import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 import javax.json.JsonObject;
 import javax.ws.rs.GET;
