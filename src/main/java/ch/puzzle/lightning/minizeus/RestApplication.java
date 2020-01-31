@@ -5,11 +5,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Application;
 
-@ApplicationPath("api")
-@Path("")
+@ApplicationPath("/api")
 public class RestApplication extends Application {
-    @GET
-    public String getTest() {
-        return "hello";
-    }
 }

@@ -1,6 +1,38 @@
-mainnet
-testnet
+# Eclipse
+.project
+.classpath
+.settings/
+bin/
 
+# IntelliJ
 .idea
-target
+*.ipr
 *.iml
+*.iws
+
+# NetBeans
+nb-configuration.xml
+
+# Visual Studio Code
+.vscode
+
+# OSX
+.DS_Store
+
+# Vim
+*.swp
+*.swo
+
+# patch
+*.orig
+*.rej
+
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+release.properties
+
+# Local config
+.env

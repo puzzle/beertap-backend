@@ -4,6 +4,7 @@ package ch.puzzle.lightning.minizeus.invoices.boundary;
 import ch.puzzle.lightning.minizeus.invoices.entity.Invoice;
 import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceSettled;
 import ch.puzzle.lightning.minizeus.lightning.boundary.Lightning;
+import org.jboss.resteasy.annotations.SseElementType;
 
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
@@ -30,16 +31,6 @@ public class InvoiceResource {
     private volatile SseBroadcaster sseBroadcaster;
     private OutboundSseEvent.Builder eventBuilder;
 
-    @Context
-    Sse sse;
-
-    @PostConstruct
-    public void initSse() {
-        this.sseBroadcaster = sse.newBroadcaster();
-        this.eventBuilder = sse.newEventBuilder();
-        sseBroadcaster.onClose(sseEventSink -> System.out.println("subscription closed"));
-    }
-
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Invoice getInvoice(
@@ -51,17 +42,22 @@ public class InvoiceResource {
     @GET
     @Path("subscribe")
     @Produces(MediaType.SERVER_SENT_EVENTS)
-    public Response subscribe(@Context SseEventSink sseEventSink) {
+    public void subscribe(@Context SseEventSink sseEventSink, @Context Sse sse) {
         System.out.println("new subscription");
+        registerSink(sseEventSink, sse);
+    }
+
+    private void registerSink(SseEventSink sseEventSink, Sse sse) {
+        if (this.sseBroadcaster == null) {
+            initSse(sse);
+        }
         this.sseBroadcaster.register(sseEventSink);
-        return Response.ok()
-                .header("Access-Control-Allow-Origin", "*")
-                .header("Access-Control-Allow-Credentials", "true")
-                .header("Access-Control-Allow-Headers",
-                        "origin, content-type, accept, authorization")
-                .header("Access-Control-Allow-Methods",
-                        "GET, POST, PUT, DELETE, OPTIONS, HEAD")
-                .build();
+    }
+
+    public void initSse(Sse sse) {
+        this.sseBroadcaster = sse.newBroadcaster();
+        this.eventBuilder = sse.newEventBuilder();
+        sseBroadcaster.onClose(sseEventSink -> System.out.println("subscription closed"));
     }
 
     public void sendMessage(@ObservesAsync InvoiceSettled value) {

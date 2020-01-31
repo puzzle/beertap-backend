@@ -5,7 +5,6 @@ import ch.puzzle.lightning.minizeus.invoices.boundary.InvoiceCache;
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.Destroyed;
-import javax.enterprise.context.Initialized;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import java.util.concurrent.*;
@@ -16,8 +15,9 @@ public class InvoiceStatusPollingClient {
 
     private boolean listening;
     private ScheduledExecutorService executor;
+
     @Inject
-    private InvoiceCache invoiceCache;
+    InvoiceCache invoiceCache;
 
 
     @PostConstruct

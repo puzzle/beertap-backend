@@ -1,5 +1,7 @@
 package ch.puzzle.lightning.minizeus.opennode.boundary;
 
+import ch.puzzle.lightning.minizeus.btcpay.boundary.BtcPayClient;
+import ch.puzzle.lightning.minizeus.invoices.boundary.InvoiceCache;
 import ch.puzzle.lightning.minizeus.invoices.entity.Invoice;
 import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceCreated;
 import ch.puzzle.lightning.minizeus.invoices.entity.InvoiceUpdated;
@@ -11,6 +13,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
+import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -21,6 +24,7 @@ import javax.ws.rs.client.WebTarget;
 import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import java.util.Optional;
+import java.util.concurrent.*;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
 
@@ -46,7 +50,15 @@ public class OpenNodeClient implements LightningClient {
     @Inject
     InvoiceStatusPollingClient client;
 
+    @Inject
+    Event<OpenNodeSchedule> invoiceCheckSchedule;
+
+    @Inject
+    InvoiceCache invoiceCache;
+
+    private ScheduledExecutorService executor;
     private WebTarget openNodeTarget;
+    volatile private boolean listening;
 
     @PostConstruct
     public void init() {
@@ -116,16 +128,46 @@ public class OpenNodeClient implements LightningClient {
         return openNodeApiToken.filter(Predicate.not(String::isEmpty)).isPresent()
                 && openNodeApiUri.filter(Predicate.not(String::isEmpty)).isPresent();
     }
+
+
+    private void pollForCompletion() {
+        CompletableFuture<Boolean> completionFuture = new CompletableFuture<>();
+        final ScheduledFuture<?> checkFuture = executor.scheduleAtFixedRate(() -> {
+            if (!this.listening) {
+                completionFuture.complete(true);
+            }
+            invoiceCheckSchedule.fire(new OpenNodeSchedule());
+        }, 0, 1, TimeUnit.SECONDS);
+        completionFuture.whenComplete((result, thrown) -> {
+            checkFuture.cancel(true);
+        });
+    }
+
+    void checkInvoices(@Observes OpenNodeSchedule schedule) {
+        LOG.info("Checking Opennode invoices");
+        for (String invoiceId : this.invoiceCache.getPendingInvoices()) {
+            checkInvoiceStatus(invoiceId);
+        }
+        try {
+            TimeUnit.SECONDS.sleep(1L);
+        } catch (InterruptedException e) {
+            LOG.severe(e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+
     @Override
     public void startInvoiceListen() {
-        System.out.println("Check opennode invoice");
+        System.out.println("Check OpenNode invoice");
         if (isConfigured()) {
-            System.out.println("Starting opennode invoice subscription");
-            client.pollForCompletion(this::checkInvoiceStatus)
-                    .whenComplete((aBoolean, throwable) -> System.out.println("Subscription ended"));
-            LOG.info("Starting opennode invoice subscription");
+            executor = Executors.newSingleThreadScheduledExecutor();
+            System.out.println("Starting OpenNode invoice subscription");
+            this.listening = true;
+            LOG.info("Starting OpenNode invoice subscription");
+            pollForCompletion();
         } else {
-            throw new ZeusInternalException("OpenNode is not configured");
+            throw new ZeusInternalException("BtcPay is not configured");
         }
     }
 
@@ -142,8 +184,6 @@ public class OpenNodeClient implements LightningClient {
         if (invoiceUpdated.settled) {
             LOG.info("Sending update event");
             invoiceUpdateEvent.fireAsync(invoiceUpdated);
-        } else {
-            LOG.info("Invoice not settled");
         }
     }
 
@@ -163,5 +203,8 @@ public class OpenNodeClient implements LightningClient {
                 .request(MediaType.APPLICATION_JSON_TYPE)
                 .header(HttpHeaders.CONTENT_TYPE, "application/json")
                 .header(HttpHeaders.AUTHORIZATION, openNodeApiToken.orElseThrow());
+    }
+
+    private class OpenNodeSchedule {
     }
 }

@@ -15,7 +15,7 @@ import java.util.function.Predicate;
 public class CorsFilter implements ContainerResponseFilter {
 
     @Inject
-    @ConfigProperty(name = "app.allow-origin")
+    @ConfigProperty(name = "app.allowOrigin")
     Optional<String> allowOrigin;
 
     @Override

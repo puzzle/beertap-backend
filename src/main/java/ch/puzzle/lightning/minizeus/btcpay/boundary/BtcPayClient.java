@@ -161,7 +161,7 @@ public class BtcPayClient implements LightningClient {
         });
     }
 
-    private void checkInvoices(@Observes BtcPaySchedule schedule) {
+    void checkInvoices(@Observes BtcPaySchedule schedule) {
         LOG.info("Checking BtcPay invoices");
         for (String invoiceId : this.invoiceCache.getPendingInvoices()) {
             checkInvoiceStatus(invoiceId);
@@ -183,8 +183,6 @@ public class BtcPayClient implements LightningClient {
         if (event.settled) {
             LOG.info("Sending update event");
             invoiceUpdateEvent.fireAsync(event);
-        } else {
-            LOG.info("Invoice not settled");
         }
     }
 
