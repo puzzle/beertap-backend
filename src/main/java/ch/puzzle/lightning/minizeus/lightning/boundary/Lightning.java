@@ -1,9 +1,10 @@
 package ch.puzzle.lightning.minizeus.lightning.boundary;
 
+import ch.puzzle.lightning.minizeus.btcpay.boundary.BtcPayClient;
 import ch.puzzle.lightning.minizeus.invoices.entity.Invoice;
-import ch.puzzle.lightning.minizeus.lnd.boundary.LndClient;
+import ch.puzzle.lightning.minizeus.invoices.entity.ZeusInternalException;
+import ch.puzzle.lightning.minizeus.lnd.boundary.LndRestClient;
 import ch.puzzle.lightning.minizeus.opennode.boundary.OpenNodeClient;
-import org.apache.commons.configuration.ConfigurationRuntimeException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import javax.enterprise.context.ApplicationScoped;
@@ -26,7 +27,10 @@ public class Lightning implements LightningClient {
     OpenNodeClient openNodeClient;
 
     @Inject
-    LndClient lndClient;
+    LndRestClient lndClient;
+
+    @Inject
+    BtcPayClient btcPayClient;
 
     @Inject
     @ConfigProperty(name = "lightning.client.preferred")
@@ -43,11 +47,7 @@ public class Lightning implements LightningClient {
     }
 
     public void init(@Observes @Initialized(ApplicationScoped.class) Object init) {
-        if (isConfigured()) {
-            startInvoiceListen();
-        } else {
-            LOG.severe("There is no available lightning client");
-        }
+        startInvoiceListen();
     }
 
     @Override
@@ -57,7 +57,7 @@ public class Lightning implements LightningClient {
 
 
     public boolean isConfigured() {
-        return openNodeClient.isConfigured() || lndClient.isConfigured();
+        return getClient().isConfigured();
     }
 
     private LightningClient getClient() {
@@ -75,6 +75,9 @@ public class Lightning implements LightningClient {
             case OPENNODE:
                 if (openNodeClient.isConfigured()) return openNodeClient;
                 break;
+            case BTCPAY:
+                if (btcPayClient.isConfigured()) return btcPayClient;
+                break;
             default:
         }
         return getConfiguredClient();
@@ -85,8 +88,10 @@ public class Lightning implements LightningClient {
             return lndClient;
         } else if (openNodeClient.isConfigured()) {
             return openNodeClient;
+        } else if (btcPayClient.isConfigured()) {
+            return btcPayClient;
         } else {
-            throw new ConfigurationRuntimeException();
+            throw new ZeusInternalException("No configured lightning client");
         }
     }
 
@@ -103,7 +108,7 @@ public class Lightning implements LightningClient {
     }
 
     enum ClientType {
-        OPENNODE, LND, NO_PREFERENCE;
+        OPENNODE, LND, BTCPAY, NO_PREFERENCE;
 
     }
 }

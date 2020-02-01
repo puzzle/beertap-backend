@@ -1,14 +1,12 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<?xml version="1.0"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <modelVersion>4.0.0</modelVersion>
-
-  <groupId>ch.puzzle.lightning</groupId>
+  <groupId>ch.puzzle</groupId>
   <artifactId>mini-zeus</artifactId>
-  <version>1.0.0</version>
-  <packaging>jar</packaging>
-
-  <name>Mini Zeus</name>
+  <version>0.0.1</version>
+  <packaging>war</packaging>
 
   <properties>
     <maven.compiler.source>11</maven.compiler.source>
@@ -18,48 +16,36 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
     <failOnMissingWebXml>false</failOnMissingWebXml>
-    <kumuluzee.version>3.6.1</kumuluzee.version>
-  </properties>
 
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>com.kumuluz.ee</groupId>
-        <artifactId>kumuluzee-bom</artifactId>
-        <version>${kumuluzee.version}</version>
-        <type>pom</type>
-        <scope>import</scope>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
+    <version.microprofile>3.2</version.microprofile>
+    <!-- Plugin versions -->
+    <version.liberty-maven-plugin>3.2</version.liberty-maven-plugin>
+
+  </properties>
 
   <dependencies>
     <dependency>
-      <groupId>com.kumuluz.ee</groupId>
-      <artifactId>kumuluzee-microProfile-3.0</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.lightningj</groupId>
-      <artifactId>lightningj</artifactId>
-      <version>0.8.2-Beta</version>
+      <groupId>org.eclipse.microprofile</groupId>
+      <artifactId>microprofile</artifactId>
+      <version>${version.microprofile}</version>
+      <type>pom</type>
+      <scope>provided</scope>
     </dependency>
   </dependencies>
-
   <build>
+    <finalName>mini-zeus</finalName>
     <plugins>
       <plugin>
-        <groupId>com.kumuluz.ee</groupId>
-        <artifactId>kumuluzee-maven-plugin</artifactId>
-        <version>${kumuluzee.version}</version>
-        <executions>
-          <execution>
-            <id>package</id>
-            <goals>
-              <goal>repackage</goal>
-            </goals>
-          </execution>
-        </executions>
+        <groupId>io.openliberty.tools</groupId>
+        <artifactId>liberty-maven-plugin</artifactId>
+        <version>${version.liberty-maven-plugin}</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-war-plugin</artifactId>
+        <version>3.2.2</version>
       </plugin>
     </plugins>
   </build>
+
 </project>

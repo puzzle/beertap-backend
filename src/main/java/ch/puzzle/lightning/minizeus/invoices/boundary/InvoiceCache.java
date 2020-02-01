@@ -8,7 +8,9 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
 import javax.enterprise.event.ObservesAsync;
 import javax.inject.Inject;
+import javax.json.bind.JsonbBuilder;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -22,23 +24,36 @@ public class InvoiceCache {
     @Inject
     Event<InvoiceSettled> invoiceSettledEvent;
 
-    private final ConcurrentMap<String, Long> invoices = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, InvoiceCreated> invoices = new ConcurrentHashMap<>();
 
     public void invoiceCreated(@ObservesAsync InvoiceCreated value) {
-        invoices.put(value.invoice.rHash, now() + value.invoice.expiry);
+        System.out.println(JsonbBuilder.create().toJson(value));
+        invoices.put(value.id, value);
         if (invoices.size() > 1000) {
             LOG.severe("Cache is getting big!");
         }
     }
 
     public void invoiceUpdated(@ObservesAsync InvoiceUpdated value) {
+        System.out.println("Received update event");
         long now = now();
         cleanCache(now);
-        if (invoices.getOrDefault(value.invoice.rHash, 0L) > now &&
-                value.invoice.settled) {
-            invoiceSettledEvent.fireAsync(new InvoiceSettled(value.invoice))
-                    .whenComplete((invoiceSettled, throwable) -> invoices.remove(invoiceSettled.invoice.rHash));
+        if (Optional.ofNullable(invoices.get(value.id))
+                .filter(i -> i.expiry  > now)
+                .isPresent() &&
+                value.settled) {
+            System.out.println("sending settled event");
+            invoiceSettledEvent.fireAsync(getInvoiceSettled(value))
+                    .whenComplete((invoiceSettled, throwable) -> invoices.remove(invoiceSettled.id));
         }
+    }
+
+    private InvoiceSettled getInvoiceSettled(InvoiceUpdated value) {
+        InvoiceSettled invoiceSettled = new InvoiceSettled();
+        invoiceSettled.id = value.id;
+        invoiceSettled.settled = value.settled;
+        invoiceSettled.memo = value.memo;
+        return invoiceSettled;
     }
 
     private long now() {
@@ -47,7 +62,7 @@ public class InvoiceCache {
 
     private void cleanCache(long now) {
         long sizeBefore = invoices.size();
-        invoices.entrySet().removeIf(entry -> entry.getValue() < now);
+        invoices.entrySet().removeIf(entry -> entry.getValue().expiry < now);
         LOG.info("Removed " + (sizeBefore - invoices.size()) + " invoices, actual size: " + invoices.size());
     }
 

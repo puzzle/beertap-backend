@@ -1,9 +1,7 @@
 package ch.puzzle.lightning.minizeus.invoices.entity;
 
 public class InvoiceUpdated {
-    public Invoice invoice;
-
-    public InvoiceUpdated(Invoice invoice) {
-        this.invoice = invoice;
-    }
+    public String id;
+    public boolean settled;
+    public String memo;
 }

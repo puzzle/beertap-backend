@@ -6,6 +6,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.ObservesAsync;
+import javax.inject.Inject;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -19,16 +20,19 @@ public class ProcessInvoker {
 
     private static final Logger LOG = Logger.getLogger(ProcessInvoker.class.getName());
 
+    @Inject
     @ConfigProperty(name = "app.exec.path", defaultValue = "echo")
     String appExecPath;
+
+    @Inject
     @ConfigProperty(name = "app.beer-tap.memo-prefix", defaultValue = "FlashFlush")
-    private String memoPrefix;
+    String memoPrefix;
 
     public void consumeInvoice(@ObservesAsync InvoiceSettled event) {
-        LOG.info("consumeInvoice " + event.invoice.rHash);
+        LOG.info("consumeInvoice " + event.id);
         CompletableFuture.supplyAsync(() -> {
             try {
-                return executeCommand(event.invoice);
+                return executeCommand(event);
             } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
@@ -44,7 +48,7 @@ public class ProcessInvoker {
     }
 
 
-    private Integer executeCommand(Invoice invoice) throws IOException, InterruptedException {
+    private Integer executeCommand(InvoiceSettled invoice) throws IOException, InterruptedException {
         String productsArg = "--products=" + getFromMemo(invoice.memo);
         if(!invoice.memo.startsWith(memoPrefix)) {
             LOG.info("Not a beerTap invoice");
