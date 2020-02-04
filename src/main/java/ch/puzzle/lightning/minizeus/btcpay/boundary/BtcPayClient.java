@@ -77,8 +77,8 @@ public class BtcPayClient implements LightningClient {
 
     private JsonObject createAddInvoiceRequest(long amount, String memo) {
         return Json.createObjectBuilder()
-                .add("price", BigDecimal.valueOf(amount).divide(BigDecimal.valueOf(100_000_000)).toString())
-                .add("currency", "BTC")
+                .add("price", amount)
+                .add("currency", "sats")
                 .add("itemDesc", memo)
                 .build();
     }
