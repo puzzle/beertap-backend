@@ -12,7 +12,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import java.util.logging.Logger;
 
 @ApplicationScoped
@@ -21,18 +23,20 @@ public class ProcessInvoker {
     private static final Logger LOG = Logger.getLogger(ProcessInvoker.class.getName());
 
     @Inject
-    @ConfigProperty(name = "app.exec.path", defaultValue = "echo")
-    String appExecPath;
+    @ConfigProperty(name = "app.exec.path")
+    Optional<String> appExecPath;
 
     @Inject
-    @ConfigProperty(name = "app.beer-tap.memo-prefix", defaultValue = "FlashFlush")
+    @ConfigProperty(name = "app.beertap.name", defaultValue = "FlashFlush")
     String memoPrefix;
 
     public void consumeInvoice(@ObservesAsync InvoiceSettled event) {
         LOG.info("consumeInvoice " + event.id);
         CompletableFuture.supplyAsync(() -> {
             try {
-                return executeCommand(event);
+                if (appExecPath.filter(Predicate.not(String::isBlank)).isPresent()) {
+                    return executeCommand(event);
+                }
             } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
             }
@@ -57,7 +61,7 @@ public class ProcessInvoker {
 
         LOG.info("Command: " + appExecPath + ", Args: " + productsArg);
 
-        ProcessBuilder pb = new ProcessBuilder(appExecPath, productsArg);
+        ProcessBuilder pb = new ProcessBuilder(appExecPath.orElse("echo"), productsArg);
         Map<String, String> env = pb.environment();
         pb.directory(Paths.get(".").toFile());
         Process p = pb.start();
