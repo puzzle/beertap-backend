@@ -16,6 +16,7 @@ import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.json.Json;
 import javax.json.JsonObject;
+import javax.json.bind.JsonbBuilder;
 import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation;
@@ -106,8 +107,8 @@ public class BtcPayClient implements LightningClient {
     private JsonObject createAddInvoiceRequestWithRedirect(String orderId, long amount, String memo, String redirectUrl) {
         return Json.createObjectBuilder()
                 .add("orderId", orderId)
-                .add("price", BigDecimal.valueOf(amount).divide(BigDecimal.valueOf(100_000_000)).toString())
-                .add("currency", "BTC")
+                .add("price", amount)
+                .add("currency", "sats")
                 .add("itemDesc", memo)
                 .add("redirectURL", redirectUrl)
                 .build();
@@ -181,6 +182,7 @@ public class BtcPayClient implements LightningClient {
         event.settled = "complete".equals(btcPayInvoiceStatus.getString("status"));
         event.memo = btcPayInvoiceStatus.getString("itemDesc");
         if (event.settled) {
+            LOG.info(JsonbBuilder.create().toJson(event));
             LOG.info("Sending update event");
             invoiceUpdateEvent.fireAsync(event);
         }
